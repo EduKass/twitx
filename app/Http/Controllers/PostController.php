@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Post;
@@ -24,8 +25,9 @@ class PostController extends Controller
      */
     public function index()
     {
-        $posts = Post::all();
-        return view('posts.index', ['posts' => $posts]);    }
+        $posts = Post::with('user')->latest()->get();
+        return view('home', ['posts' => $posts]);
+    }
 
     /**
      * Store a newly created post in storage.
@@ -33,22 +35,23 @@ class PostController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\RedirectResponse
      */
-   public function store(Request $request)
-{
-    // Validate the request data
-    $request->validate([
-        'content' => 'required|max:255',
-    ]);
+    public function store(Request $request)
+    {
+        // Validate the request data
+        $request->validate([
+            'content' => 'required|max:255',
+        ]);
 
-    // Create the post
-    $post = new Post();
-    $post->user_id = auth()->id(); // Get the authenticated user's ID
-    $post->content = $request->input('content');
-    $post->save();
+        // Create the post
+        Post::create([
+            'user_id' => auth()->id(),
+            'content' => $request->input('content'),
+        ]);
 
-    // Redirect back to the home page
-    return redirect()->route('home');
-}
+        // Redirect back to the home page
+        return redirect()->route('home')->with('status', 'Post created successfully!');
+    }
+
     /**
      * Remove the specified post from storage.
      *
@@ -57,9 +60,11 @@ class PostController extends Controller
      */
     public function destroy(Post $post)
     {
-        $this->authorize('delete', $post);
-        $post->delete();
+        if ($post->user_id !== auth()->id()) {
+            return redirect()->route('home')->with('error', 'Unauthorized action.');
+        }
 
-        return redirect()->route('home');
+        $post->delete();
+        return redirect()->route('home')->with('status', 'Post deleted successfully!');
     }
 }
